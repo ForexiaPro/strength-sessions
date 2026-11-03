@@ -1,0 +1,146 @@
+<!doctype html>
+<!--
+  Currency strength meter. One file, no cookie, no outside font. It reads the
+  derived values in strength.json (scripts/strength.mjs writes it: strength
+  0-10 and average percent change per currency, no prices). Options from the address:
+    ?theme=light|dark|auto  ?accent=3d5afe (hex, no #)  ?flat=1 (transparent)
+    ?window=24h (1h, 4h, 24h, 1w: whichever the file has)  ?tabs=0 (no window buttons)
+    ?src=../data/strength.json (same site only)  ?id= (embed.js's frame number)
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <title>Currency strength meter</title>
+    <script>
+      (function () {
+        var q = new URLSearchParams(location.search), t = q.get('theme'), a = q.get('accent'), r = document.documentElement;
+        if (t === 'dark' || (t === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches)) r.classList.add('dark');
+        if (a && /^[0-9a-f]{6}$/i.test(a)) r.style.setProperty('--accent', '#' + a);
+        if (q.get('flat') === '1') r.classList.add('flat');
+      })();
+    </script>
+    <style>
+      :root { color-scheme: light; --ink: #0a1020; --soft: #566176; --faint: #8a94a8; --line: #e3e7ee; --line2: #eef1f5; --bg: #fff; --card: #f7f8fb; --accent: #3d5afe; --up: #0e9f7e; --down: #e5484d; --amber: #f5a524; }
+      html.dark { color-scheme: dark; --ink: #e8ecf4; --soft: #94a3b8; --faint: #66718a; --line: #232d44; --line2: #1a2238; --bg: #0b1120; --card: #111a2e; }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; background: var(--bg); color: var(--ink); }
+      body { font: 14px/1.45 system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif; -webkit-font-smoothing: antialiased; }
+      html.flat, html.flat body { background: transparent; }
+      a { color: inherit; text-decoration: none; }
+      a:hover { text-decoration: underline; text-underline-offset: 3px; }
+      [hidden] { display: none !important; }
+      .num { font-variant-numeric: tabular-nums; }
+      .w { display: flex; flex-direction: column; }
+      .w-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 14px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+      .w-head h1 { margin: 0; font-size: 13.5px; font-weight: 700; letter-spacing: -0.01em; }
+      .tag { display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 99px; font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; background: color-mix(in srgb, var(--amber) 18%, transparent); color: #b7791f; vertical-align: 1px; }
+      .tabs { display: inline-flex; gap: 2px; padding: 2px; border-radius: 8px; background: var(--line2); }
+      .tabs button { font: inherit; font-size: 11.5px; font-weight: 650; border: 0; border-radius: 6px; padding: 3px 9px; background: transparent; color: var(--soft); cursor: pointer; }
+      .tabs button[aria-pressed='true'] { background: var(--bg); color: var(--ink); box-shadow: 0 1px 2px rgba(10, 16, 32, 0.12); }
+      .tabs button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+      .w-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 9px 14px; border-top: 1px solid var(--line); font-size: 11.5px; color: var(--soft); }
+      .w-foot a { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; color: var(--soft); }
+      .w-foot a:hover { color: var(--ink); }
+      .w-mark { width: 14px; height: 14px; border-radius: 4px; background: var(--accent); display: inline-grid; place-items: center; color: #fff; font: 800 9px/1 system-ui; }
+
+      .list { list-style: none; margin: 0; padding: 8px 14px 10px; }
+      .item { display: grid; grid-template-columns: 18px 38px 1fr 34px 64px; gap: 10px; align-items: center; padding: 5px 0; }
+      .rk { font-size: 11.5px; color: var(--faint); text-align: right; }
+      .cur { font-weight: 750; font-size: 13.5px; letter-spacing: 0.01em; }
+      .track { position: relative; height: 10px; border-radius: 99px; background: var(--line2); overflow: hidden; }
+      .track i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 99px; background: var(--c); transition: width 0.3s ease; }
+      .track::after { content: ''; position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; background: var(--bg); opacity: 0.9; }
+      .val { font-weight: 700; text-align: right; font-size: 13px; }
+      .chg { text-align: right; font-size: 12px; }
+      .chg.up { color: var(--up); }
+      .chg.down { color: var(--down); }
+      .msg { padding: 18px 14px; color: var(--soft); font-size: 13px; }
+      .as-of { padding: 0 14px 10px; font-size: 11.5px; color: var(--faint); }
+      @media (max-width: 360px) { .item { grid-template-columns: 14px 34px 1fr 30px 56px; gap: 7px; } }
+      @media (prefers-reduced-motion: reduce) { .track i { transition: none; } }
+    </style>
+  </head>
+  <body>
+    <div class="w">
+      <div class="w-head">
+        <h1>Currency strength<span class="tag" id="sample" hidden>Sample data</span></h1>
+        <div class="tabs" id="tabs" role="group" aria-label="Window"></div>
+      </div>
+      <ol class="list" id="list"><li class="msg">Loading…</li></ol>
+      <p class="as-of" id="asof" hidden></p>
+      <div class="w-foot">
+        <a href="https://forexiapro.com/tradingtools?via=strength-sessions" target="_blank" rel="noopener"><span class="w-mark" aria-hidden="true">F</span>Forexia</a>
+        <span>0 weakest · 10 strongest</span>
+      </div>
+    </div>
+    <script>
+      (function () {
+        var q = new URLSearchParams(location.search), id = q.get('id');
+        var data = null, current = q.get('window') || '24h';
+        var full = new Intl.DateTimeFormat(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short' });
+        function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+        function colour(s) { return s >= 6.5 ? 'var(--up)' : s <= 3.5 ? 'var(--down)' : 'var(--faint)'; }
+        function message(text) { var l = document.getElementById('list'); l.textContent = ''; l.appendChild(el('li', 'msg', text)); size(); }
+
+        function draw() {
+          var ws = data.windows, w = ws.filter(function (x) { return x.id === current; })[0] || ws.filter(function (x) { return x.id === '24h'; })[0] || ws[0];
+          current = w.id;
+          var tabs = document.getElementById('tabs');
+          tabs.textContent = '';
+          if (q.get('tabs') !== '0' && ws.length > 1) {
+            ws.forEach(function (x) {
+              var b = el('button', null, x.id); b.type = 'button'; b.title = x.label || x.id;
+              b.setAttribute('aria-pressed', String(x.id === current));
+              b.onclick = function () { current = x.id; draw(); };
+              tabs.appendChild(b);
+            });
+          }
+          var list = document.getElementById('list');
+          list.textContent = '';
+          (w.rank || []).filter(function (c) { return /^[A-Z]{3}$/.test(c) && typeof w.strength[c] === 'number'; }).forEach(function (c, i) {
+            var s = Math.max(0, Math.min(10, w.strength[c])), ch = w.change ? w.change[c] : null;
+            var li = el('li', 'item');
+            li.style.setProperty('--c', colour(s));
+            li.appendChild(el('span', 'rk num', String(i + 1)));
+            li.appendChild(el('span', 'cur', c));
+            var t = el('span', 'track'), bar = el('i'); bar.style.width = Math.max(2, s * 10) + '%'; t.appendChild(bar); li.appendChild(t);
+            li.appendChild(el('span', 'val num', s.toFixed(1)));
+            if (typeof ch === 'number') {
+              var sign = ch > 0 ? '+' : ch < 0 ? '−' : '';
+              li.appendChild(el('span', 'chg num ' + (ch > 0 ? 'up' : ch < 0 ? 'down' : ''), sign + Math.abs(ch).toFixed(2) + '%'));
+            } else li.appendChild(el('span'));
+            li.title = c + ': ' + s.toFixed(1) + ' of 10' + (typeof ch === 'number' ? ', average change ' + ch.toFixed(3) + '% across ' + (w.pairs ? w.pairs[c] : '') + ' pairs' : '');
+            list.appendChild(li);
+          });
+          var a = document.getElementById('asof');
+          a.hidden = false;
+          a.textContent = 'Over ' + (w.label || w.id) + (w.at ? ', to ' + full.format(new Date(w.at)) : '') + '. Average % change against the other majors.';
+          document.getElementById('sample').hidden = !data.sample;
+          size();
+        }
+
+        // tell the page around it how tall this is (embed.js sets the frame's height)
+        var last = 0;
+        function size() {
+          var h = Math.ceil(document.querySelector('.w').getBoundingClientRect().height);
+          if (h !== last && parent !== window) { last = h; parent.postMessage({ fx: 'size', widget: 'strength', id: id, height: h }, '*'); }
+        }
+        if ('ResizeObserver' in window) new ResizeObserver(size).observe(document.querySelector('.w'));
+        window.addEventListener('load', size);
+
+        var src = '../data/strength.json';
+        try { var u = new URL(q.get('src') || src, location.href); if (u.origin === location.origin) src = u.href; } catch (e) {}
+        function load() {
+          fetch(src, { cache: 'no-cache' })
+            .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+            .then(function (j) { if (!j || !j.windows || !j.windows.length) throw new Error('empty'); data = j; draw(); })
+            .catch(function () { if (!data) message('Strength figures are not available right now.'); });
+        }
+        load();
+        setInterval(load, 5 * 60 * 1000);
+      })();
+    </script>
+  </body>
+</html>

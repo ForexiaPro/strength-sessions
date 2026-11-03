@@ -1,0 +1,25 @@
+{
+  "name": "forex-strength-sessions",
+  "version": "0.1.0",
+  "description": "Forex session clock (Sydney, Tokyo, London, New York, daylight saving through Intl) and currency strength meter from pair closes. No dependencies.",
+  "type": "module",
+  "main": "./src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./sessions": "./src/sessions.js",
+    "./strength": "./src/strength.js"
+  },
+  "files": ["src", "README.md", "LICENSE"],
+  "scripts": {
+    "test": "node --test \"test/*.test.js\"",
+    "widgets": "node scripts/build-widgets.mjs",
+    "strength": "node scripts/strength.mjs",
+    "demo": "node scripts/strength.mjs --demo"
+  },
+  "engines": { "node": ">=18" },
+  "keywords": ["forex", "currency strength meter", "forex sessions", "market hours", "session clock", "trading", "mt5"],
+  "homepage": "https://github.com/ForexiaPro/strength-sessions",
+  "repository": { "type": "git", "url": "git+https://github.com/ForexiaPro/strength-sessions.git" },
+  "license": "MIT",
+  "author": "Forexia (https://forexiapro.com/?via=strength-sessions)"
+}

@@ -1,0 +1,208 @@
+{
+ "name": "Currency strength",
+ "generated": "2026-11-03T01:09:31.966Z",
+ "sample": true,
+ "method": "https://github.com/ForexiaPro/strength-sessions#the-method",
+ "note": "Derived values only: each currency's strength (0-10 within a window) and its average percent change across its pairs. No prices.",
+ "currencies": [
+  "USD",
+  "EUR",
+  "GBP",
+  "JPY",
+  "CHF",
+  "CAD",
+  "AUD",
+  "NZD"
+ ],
+ "windows": [
+  {
+   "id": "1h",
+   "label": "1 hour",
+   "hours": 1,
+   "from": "2026-11-03T00:00:00.000Z",
+   "at": "2026-11-03T01:00:00.000Z",
+   "rank": [
+    "CHF",
+    "NZD",
+    "GBP",
+    "EUR",
+    "JPY",
+    "USD",
+    "AUD",
+    "CAD"
+   ],
+   "strength": {
+    "CHF": 10,
+    "NZD": 7,
+    "GBP": 6,
+    "EUR": 5.5,
+    "JPY": 2.7,
+    "USD": 2.5,
+    "AUD": 1.9,
+    "CAD": 0
+   },
+   "change": {
+    "CHF": 0.1153,
+    "NZD": 0.0527,
+    "GBP": 0.0314,
+    "EUR": 0.021,
+    "JPY": -0.0367,
+    "USD": -0.0397,
+    "AUD": -0.052,
+    "CAD": -0.0921
+   },
+   "pairs": {
+    "CHF": 7,
+    "NZD": 7,
+    "GBP": 7,
+    "EUR": 7,
+    "JPY": 7,
+    "USD": 7,
+    "AUD": 7,
+    "CAD": 7
+   }
+  },
+  {
+   "id": "4h",
+   "label": "4 hours",
+   "hours": 4,
+   "from": "2026-11-02T21:00:00.000Z",
+   "at": "2026-11-03T01:00:00.000Z",
+   "rank": [
+    "EUR",
+    "CHF",
+    "USD",
+    "JPY",
+    "NZD",
+    "GBP",
+    "AUD",
+    "CAD"
+   ],
+   "strength": {
+    "EUR": 10,
+    "CHF": 9.5,
+    "USD": 8,
+    "JPY": 6.7,
+    "NZD": 5.6,
+    "GBP": 5.3,
+    "AUD": 3,
+    "CAD": 0
+   },
+   "change": {
+    "EUR": 0.2356,
+    "CHF": 0.204,
+    "USD": 0.1173,
+    "JPY": 0.0417,
+    "NZD": -0.0228,
+    "GBP": -0.043,
+    "AUD": -0.178,
+    "CAD": -0.3549
+   },
+   "pairs": {
+    "EUR": 7,
+    "CHF": 7,
+    "USD": 7,
+    "JPY": 7,
+    "NZD": 7,
+    "GBP": 7,
+    "AUD": 7,
+    "CAD": 7
+   }
+  },
+  {
+   "id": "24h",
+   "label": "24 hours",
+   "hours": 24,
+   "from": "2026-11-02T01:00:00.000Z",
+   "at": "2026-11-03T01:00:00.000Z",
+   "rank": [
+    "EUR",
+    "USD",
+    "CHF",
+    "JPY",
+    "GBP",
+    "NZD",
+    "AUD",
+    "CAD"
+   ],
+   "strength": {
+    "EUR": 10,
+    "USD": 9.7,
+    "CHF": 7.6,
+    "JPY": 6.7,
+    "GBP": 5.3,
+    "NZD": 4.3,
+    "AUD": 3.4,
+    "CAD": 0
+   },
+   "change": {
+    "EUR": 0.8767,
+    "USD": 0.8184,
+    "CHF": 0.3695,
+    "JPY": 0.1709,
+    "GBP": -0.1286,
+    "NZD": -0.3365,
+    "AUD": -0.5182,
+    "CAD": -1.2521
+   },
+   "pairs": {
+    "EUR": 7,
+    "USD": 7,
+    "CHF": 7,
+    "JPY": 7,
+    "GBP": 7,
+    "NZD": 7,
+    "AUD": 7,
+    "CAD": 7
+   }
+  },
+  {
+   "id": "1w",
+   "label": "1 week",
+   "hours": 120,
+   "from": "2026-10-29T01:00:00.000Z",
+   "at": "2026-11-03T01:00:00.000Z",
+   "rank": [
+    "USD",
+    "NZD",
+    "EUR",
+    "AUD",
+    "CHF",
+    "JPY",
+    "GBP",
+    "CAD"
+   ],
+   "strength": {
+    "USD": 10,
+    "NZD": 8,
+    "EUR": 7.5,
+    "AUD": 6.7,
+    "CHF": 6.3,
+    "JPY": 4.9,
+    "GBP": 4,
+    "CAD": 0
+   },
+   "change": {
+    "USD": 2.757,
+    "NZD": 1.3809,
+    "EUR": 1.083,
+    "AUD": 0.5421,
+    "CHF": 0.2464,
+    "JPY": -0.7276,
+    "GBP": -1.2706,
+    "CAD": -4.0112
+   },
+   "pairs": {
+    "USD": 7,
+    "NZD": 7,
+    "EUR": 7,
+    "AUD": 7,
+    "CHF": 7,
+    "JPY": 7,
+    "GBP": 7,
+    "CAD": 7
+   }
+  }
+ ],
+ "asOf": "2026-11-03T01:00:00.000Z"
+}

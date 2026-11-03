@@ -1,0 +1,430 @@
+<!doctype html>
+<!--
+  Forex market sessions: a live clock. One file, no data needed, no cookie, no
+  outside font. Options from the address:
+    ?theme=light|dark|auto  ?accent=3d5afe (hex, no #)  ?flat=1 (transparent)
+    ?decisions=0 (leave out central bank decisions)  ?id= (embed.js's frame number)
+  Central bank decisions come from InterestRateDecision.com's open data
+  (/data/next.json) when the browser may read it; without it the clock works the same.
+  The session hours and the code below are src/sessions.js (npm run widgets copies it in).
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <title>Forex market sessions</title>
+    <script>
+      (function () {
+        var q = new URLSearchParams(location.search), t = q.get('theme'), a = q.get('accent'), r = document.documentElement;
+        if (t === 'dark' || (t === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches)) r.classList.add('dark');
+        if (a && /^[0-9a-f]{6}$/i.test(a)) r.style.setProperty('--accent', '#' + a);
+        if (q.get('flat') === '1') r.classList.add('flat');
+      })();
+    </script>
+    <style>
+      :root { color-scheme: light; --ink: #0a1020; --soft: #566176; --faint: #8a94a8; --line: #e3e7ee; --line2: #eef1f5; --bg: #fff; --card: #f7f8fb; --accent: #3d5afe; --open: #0e9f7e; --amber: #f5a524;
+        --s-sydney: #f5a524; --s-tokyo: #e5484d; --s-london: #3d5afe; --s-newyork: #0e9f7e; }
+      html.dark { color-scheme: dark; --ink: #e8ecf4; --soft: #94a3b8; --faint: #66718a; --line: #232d44; --line2: #1a2238; --bg: #0b1120; --card: #111a2e; }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; background: var(--bg); color: var(--ink); }
+      body { font: 14px/1.45 system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif; -webkit-font-smoothing: antialiased; }
+      html.flat, html.flat body { background: transparent; }
+      a { color: inherit; text-decoration: none; }
+      a:hover { text-decoration: underline; text-underline-offset: 3px; }
+      [hidden] { display: none !important; }
+      .num { font-variant-numeric: tabular-nums; }
+      .w { display: flex; flex-direction: column; }
+      .w-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 14px; border-bottom: 1px solid var(--line); }
+      .w-head h1 { margin: 0; font-size: 13.5px; font-weight: 700; letter-spacing: -0.01em; }
+      .w-live { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 600; color: var(--soft); text-transform: uppercase; letter-spacing: 0.06em; white-space: nowrap; }
+      .w-live::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--faint); }
+      .w-live.on::before { background: var(--open); box-shadow: 0 0 0 0 rgba(14, 159, 126, 0.6); animation: pulse 2s infinite; }
+      @keyframes pulse { 70% { box-shadow: 0 0 0 7px rgba(14, 159, 126, 0); } 100% { box-shadow: 0 0 0 0 rgba(14, 159, 126, 0); } }
+      @media (prefers-reduced-motion: reduce) { .w-live::before { animation: none !important; } }
+      .w-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 9px 14px; border-top: 1px solid var(--line); font-size: 11.5px; color: var(--soft); }
+      .w-foot a { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; color: var(--soft); }
+      .w-foot a:hover { color: var(--ink); }
+      .w-mark { width: 14px; height: 14px; border-radius: 4px; background: var(--accent); display: inline-grid; place-items: center; color: #fff; font: 800 9px/1 system-ui; }
+
+      /* the day, in the reader's own time */
+      .tl { padding: 12px 14px 4px; }
+      .tl-grid { position: relative; display: grid; grid-template-columns: 64px 1fr; row-gap: 5px; align-items: center; }
+      .tl-name { font-size: 11.5px; color: var(--soft); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .tl-row { position: relative; height: 12px; border-radius: 4px; background: var(--line2); overflow: hidden; }
+      .tl-row i { position: absolute; top: 0; bottom: 0; border-radius: 3px; background: var(--c); opacity: 0.85; }
+      .tl-row.ov i { background: var(--ink); opacity: 0.22; }
+      .tl-axis { position: relative; height: 16px; margin-left: 64px; font-size: 10.5px; color: var(--faint); }
+      .tl-axis span { position: absolute; transform: translateX(-50%); top: 2px; white-space: nowrap; }
+      .tl-axis span:first-child { transform: none; }
+      .tl-axis span:last-child { transform: translateX(-100%); }
+      .tl-now { position: absolute; top: -4px; bottom: -2px; width: 2px; margin-left: -1px; background: var(--accent); border-radius: 1px; pointer-events: none; }
+      .tl-now::after { content: ''; position: absolute; top: -3px; left: -3px; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
+      .tl-lane { position: absolute; top: 0; bottom: 0; left: 64px; right: 0; pointer-events: none; }
+
+      .rows { list-style: none; margin: 0; padding: 4px 0 6px; }
+      .row { display: grid; grid-template-columns: 10px 1fr auto; gap: 4px 10px; align-items: center; padding: 8px 14px; border-top: 1px solid var(--line2); }
+      .row:first-child { border-top: 0; }
+      .dot { width: 10px; height: 10px; border-radius: 3px; background: var(--c); }
+      .row h2 { margin: 0; font-size: 13.5px; font-weight: 700; display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+      .row h2 small { font-size: 11.5px; font-weight: 500; color: var(--faint); }
+      .when { font-size: 12px; color: var(--soft); text-align: right; white-space: nowrap; }
+      .when b { color: var(--ink); font-weight: 650; }
+      .pill { display: inline-block; padding: 2px 8px; border-radius: 99px; font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; background: color-mix(in srgb, var(--faint) 18%, transparent); color: var(--soft); }
+      .pill.on { background: color-mix(in srgb, var(--open) 15%, transparent); color: var(--open); }
+      .prog { grid-column: 2 / 4; height: 4px; border-radius: 99px; background: var(--line2); overflow: hidden; }
+      .prog i { display: block; height: 100%; background: var(--c); }
+      .note { grid-column: 2 / 4; font-size: 12px; color: var(--soft); }
+      .note a { color: var(--accent); font-weight: 600; }
+      .ov-now { margin: 0 14px 10px; padding: 7px 10px; border-radius: 8px; background: var(--card); font-size: 12px; color: var(--soft); }
+      .ov-now b { color: var(--ink); }
+      @media (max-width: 360px) { .tl-grid { grid-template-columns: 52px 1fr; } .tl-lane { left: 52px; } .tl-axis { margin-left: 52px; } }
+    </style>
+  </head>
+  <body>
+    <div class="w">
+      <div class="w-head">
+        <h1>Forex market sessions</h1>
+        <span class="w-live" id="market">Market</span>
+      </div>
+      <div class="tl" aria-hidden="true">
+        <div class="tl-grid" id="tl"></div>
+        <div class="tl-axis num" id="axis"></div>
+      </div>
+      <p class="ov-now" id="ovnow" hidden></p>
+      <ul class="rows" id="rows"></ul>
+      <div class="w-foot">
+        <a href="https://forexiapro.com/forex-sessions/?via=strength-sessions" target="_blank" rel="noopener"><span class="w-mark" aria-hidden="true">F</span>Forexia</a>
+        <span id="zone"></span>
+      </div>
+    </div>
+    <script>
+      // <lib:sessions>
+// src/sessions.js, copied in by scripts/build-widgets.mjs: edit the library, not this
+var FXSessions = (function () {
+// Forex sessions in their own time zones.
+//
+// Each session is a span of local hours in its city's IANA zone, so daylight
+// saving is handled by Intl (the runtime's time zone database), never by a
+// table of offsets. London moves from 08:00 UTC to 07:00 UTC at the end of
+// March, New York from 13:00 UTC to 12:00 UTC in the middle of March, Sydney
+// the other way round in October, Tokyo never.
+//
+// The market week runs from Sunday 17:00 to Friday 17:00 New York time. A
+// session is only open inside that week: Sydney's Monday morning starts before
+// New York's Sunday 17:00 in the northern winter, so it opens with the market.
+//
+// Times are milliseconds since the epoch or Date objects going in; Date
+// objects coming out.
+
+const SESSIONS = [
+  { id: 'sydney', name: 'Sydney', zone: 'Australia/Sydney', open: '07:00', close: '16:00', currencies: ['AUD', 'NZD'] },
+  { id: 'tokyo', name: 'Tokyo', zone: 'Asia/Tokyo', open: '09:00', close: '18:00', currencies: ['JPY'] },
+  { id: 'london', name: 'London', zone: 'Europe/London', open: '08:00', close: '17:00', currencies: ['GBP', 'EUR', 'CHF'] },
+  { id: 'newyork', name: 'New York', zone: 'America/New_York', open: '08:00', close: '17:00', currencies: ['USD', 'CAD'] },
+];
+
+const MARKET_WEEK = { zone: 'America/New_York', open: { day: 0, time: '17:00' }, close: { day: 5, time: '17:00' } };
+
+const DAY = 864e5;
+const WD = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const fmts = {};
+
+function ms(t) {
+  return t === undefined ? Date.now() : +t;
+}
+
+function hm(s) {
+  const [h, m] = s.split(':').map(Number);
+  return { h, m };
+}
+
+/** The wall clock in a zone at an instant: { y, m (1-12), d, h, mi, s, wd (0 = Sunday) }. */
+function wallClock(t, zone) {
+  let f = fmts[zone];
+  if (!f) {
+    f = fmts[zone] = new Intl.DateTimeFormat('en-US', {
+      timeZone: zone, hourCycle: 'h23', weekday: 'short',
+      year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit',
+    });
+  }
+  const o = {};
+  for (const p of f.formatToParts(new Date(ms(t)))) o[p.type] = p.value;
+  return { y: +o.year, m: +o.month, d: +o.day, h: +o.hour % 24, mi: +o.minute, s: +o.second, wd: WD.indexOf(o.weekday) };
+}
+
+/** Minutes the zone is ahead of UTC at an instant (London in July: 60). */
+function offsetMinutes(t, zone) {
+  const at = Math.floor(ms(t) / 1000) * 1000;
+  const w = wallClock(at, zone);
+  return Math.round((Date.UTC(w.y, w.m - 1, w.d, w.h, w.mi, w.s) - at) / 6e4);
+}
+
+/** The instant (ms) a wall-clock time happens in a zone. */
+function zonedToUtc(y, m, d, h, mi, zone) {
+  const guess = Date.UTC(y, m - 1, d, h, mi);
+  let t = guess - offsetMinutes(guess, zone) * 6e4;
+  t = guess - offsetMinutes(t, zone) * 6e4;
+  return t;
+}
+
+// local calendar dates in a zone covering [from, to], a day either side
+function localDates(from, to, zone) {
+  const a = wallClock(from - DAY, zone);
+  const b = wallClock(to + DAY, zone);
+  const out = [];
+  for (let u = Date.UTC(a.y, a.m - 1, a.d); u <= Date.UTC(b.y, b.m - 1, b.d); u += DAY) {
+    const x = new Date(u);
+    out.push({ y: x.getUTCFullYear(), m: x.getUTCMonth() + 1, d: x.getUTCDate(), wd: x.getUTCDay() });
+  }
+  return out;
+}
+
+/** The market weeks (Sunday 17:00 to Friday 17:00 New York) touching [from, to], as { start, end } in ms. */
+function marketWeeks(from, to) {
+  const { zone, open, close } = MARKET_WEEK;
+  const o = hm(open.time), c = hm(close.time);
+  const out = [];
+  for (const day of localDates(ms(from) - 7 * DAY, ms(to), zone)) {
+    if (day.wd !== open.day) continue;
+    const start = zonedToUtc(day.y, day.m, day.d, o.h, o.m, zone);
+    const fri = new Date(Date.UTC(day.y, day.m - 1, day.d) + (close.day - open.day) * DAY);
+    const end = zonedToUtc(fri.getUTCFullYear(), fri.getUTCMonth() + 1, fri.getUTCDate(), c.h, c.m, zone);
+    if (end > ms(from) && start < ms(to)) out.push({ start, end });
+  }
+  return out;
+}
+
+/** Is the forex market open (inside the market week) at t? */
+function marketOpen(t) {
+  const at = ms(t);
+  return marketWeeks(at, at + 1).some((w) => w.start <= at && at < w.end);
+}
+
+function find(id) {
+  const s = typeof id === 'string' ? SESSIONS.find((x) => x.id === id) : id;
+  if (!s) throw new Error('Unknown session: ' + id);
+  return s;
+}
+
+/**
+ * Every time a session is open between from and to, clipped to the market week:
+ * [{ id, name, start: Date, end: Date }], in order.
+ */
+function sessionIntervals(id, from, to) {
+  const s = find(id);
+  const a = ms(from), b = ms(to);
+  const o = hm(s.open), c = hm(s.close);
+  const weeks = marketWeeks(a - 2 * DAY, b + 2 * DAY);
+  const out = [];
+  for (const day of localDates(a, b, s.zone)) {
+    if (day.wd === 0 || day.wd === 6) continue;
+    const start = zonedToUtc(day.y, day.m, day.d, o.h, o.m, s.zone);
+    let end = zonedToUtc(day.y, day.m, day.d, c.h, c.m, s.zone);
+    if (end <= start) end += DAY;
+    for (const w of weeks) {
+      const x = Math.max(start, w.start), y = Math.min(end, w.end);
+      if (x < y && y > a && x < b) out.push({ id: s.id, name: s.name, start: new Date(x), end: new Date(y) });
+    }
+  }
+  return out.sort((p, q) => p.start - q.start);
+}
+
+/** Every session's intervals between from and to, in order of opening. */
+function intervals(from, to, sessions = SESSIONS) {
+  return sessions.flatMap((s) => sessionIntervals(s, from, to)).sort((p, q) => p.start - q.start || p.end - q.end);
+}
+
+/** The ids of the sessions open at t. */
+function openAt(t, sessions = SESSIONS) {
+  const at = ms(t);
+  return sessions.filter((s) => sessionIntervals(s, at, at + 1).some((i) => i.start <= at && at < i.end)).map((s) => s.id);
+}
+
+/** When a session next opens after t (a Date). If it is open now, its next opening after this one. */
+function nextOpen(id, t) {
+  const at = ms(t);
+  const next = sessionIntervals(id, at, at + 10 * DAY).find((i) => +i.start > at);
+  return next ? next.start : null;
+}
+
+/**
+ * Each session at t: { id, name, zone, currencies, open, start, end, nextOpen, local }.
+ * When open, start and end are this session's; when closed, the next one's.
+ * local is the wall clock in the session's city ("14:05").
+ */
+function status(t, sessions = SESSIONS) {
+  const at = ms(t);
+  return sessions.map((s) => {
+    const list = sessionIntervals(s, at - DAY, at + 10 * DAY);
+    const now = list.find((i) => i.start <= at && at < i.end);
+    const next = list.find((i) => +i.start > at);
+    const w = wallClock(at, s.zone);
+    const pick = now || next;
+    return {
+      id: s.id, name: s.name, zone: s.zone, currencies: s.currencies, open: !!now,
+      start: pick ? pick.start : null, end: pick ? pick.end : null,
+      nextOpen: next ? next.start : null,
+      local: String(w.h).padStart(2, '0') + ':' + String(w.mi).padStart(2, '0'),
+    };
+  });
+}
+
+/**
+ * The spans between from and to when two or more sessions are open at once:
+ * [{ ids: ['london', 'newyork'], start: Date, end: Date }].
+ */
+function overlaps(from, to, sessions = SESSIONS) {
+  const edges = [];
+  for (const i of intervals(from, to, sessions)) {
+    edges.push([+i.start, 1, i.id], [+i.end, -1, i.id]);
+  }
+  edges.sort((p, q) => p[0] - q[0] || p[1] - q[1]);
+  const open = new Set();
+  const out = [];
+  let prev = null;
+  for (const [t, kind, id] of edges) {
+    if (prev !== null && t > prev && open.size >= 2) {
+      const ids = sessions.map((s) => s.id).filter((x) => open.has(x));
+      const last = out[out.length - 1];
+      if (last && +last.end === prev && last.ids.join() === ids.join()) last.end = new Date(t);
+      else out.push({ ids, start: new Date(prev), end: new Date(t) });
+    }
+    if (kind === 1) open.add(id);
+    else open.delete(id);
+    prev = t;
+  }
+  return out.filter((o) => o.end > ms(from) && o.start < ms(to));
+}
+return { SESSIONS, MARKET_WEEK, wallClock, offsetMinutes, zonedToUtc, marketWeeks, marketOpen, sessionIntervals, intervals, openAt, nextOpen, status, overlaps };
+})();
+      // </lib:sessions>
+      (function () {
+        var q = new URLSearchParams(location.search), id = q.get('id');
+        var S = FXSessions, H = 36e5, DAY = 864e5;
+        var hm = new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' });
+        var dayHm = new Intl.DateTimeFormat(undefined, { weekday: 'short', hour: 'numeric', minute: '2-digit' });
+        var hourOnly = new Intl.DateTimeFormat(undefined, { hour: 'numeric' });
+        var decisions = [];
+        var VIA = 'via=strength-sessions';
+
+        function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+        function dur(ms) {
+          var m = Math.max(0, Math.round(ms / 6e4)), d = Math.floor(m / 1440), h = Math.floor((m % 1440) / 60);
+          return d > 0 ? d + 'd ' + h + 'h' : h > 0 ? h + 'h ' + (m % 60) + 'm' : (m % 60) + 'm';
+        }
+        function names(ids) {
+          var n = ids.map(function (i) { return S.SESSIONS.filter(function (s) { return s.id === i; })[0].name; });
+          return n.length < 3 ? n.join(' and ') : n.slice(0, -1).join(', ') + ' and ' + n[n.length - 1];
+        }
+        function local(t) { return (t - Date.now() < DAY - H && new Date(t).getDate() === new Date().getDate() ? hm : dayHm).format(t); }
+
+        try { document.getElementById('zone').textContent = 'Your time: ' + Intl.DateTimeFormat().resolvedOptions().timeZone.replace(/_/g, ' '); } catch (e) {}
+
+        function timeline(now) {
+          var start = new Date(now); start.setHours(0, 0, 0, 0); start = +start;
+          var end = start + DAY; // 23 or 25 hours on a change of clocks; drawn as a day
+          var span = end - start;
+          var g = document.getElementById('tl');
+          g.textContent = '';
+          function bar(row, a, b) {
+            var x = Math.max(a, start), y = Math.min(b, end);
+            if (y <= x) return;
+            var i = el('i'); i.style.left = ((x - start) / span) * 100 + '%'; i.style.width = ((y - x) / span) * 100 + '%';
+            row.appendChild(i);
+          }
+          S.SESSIONS.forEach(function (s) {
+            g.appendChild(el('span', 'tl-name', s.name));
+            var row = el('div', 'tl-row'); row.style.setProperty('--c', 'var(--s-' + s.id + ')');
+            S.sessionIntervals(s.id, start, end).forEach(function (i) { bar(row, +i.start, +i.end); });
+            g.appendChild(row);
+          });
+          g.appendChild(el('span', 'tl-name', 'Overlaps'));
+          var ov = el('div', 'tl-row ov');
+          S.overlaps(start, end).forEach(function (o) { bar(ov, +o.start, +o.end); });
+          g.appendChild(ov);
+          var lane = el('div', 'tl-lane'), mark = el('div', 'tl-now');
+          mark.style.left = ((now - start) / span) * 100 + '%';
+          lane.appendChild(mark); g.appendChild(lane);
+          var ax = document.getElementById('axis');
+          if (!ax.childNodes.length) {
+            [0, 6, 12, 18, 24].forEach(function (h) {
+              var s = el('span', null, h === 24 ? hourOnly.format(start) : hourOnly.format(start + h * H));
+              s.style.left = (h / 24) * 100 + '%'; ax.appendChild(s);
+            });
+          }
+        }
+
+        function decisionIn(a, b) {
+          return decisions.filter(function (d) { var t = Date.parse(d.t); return t >= a && t < b; });
+        }
+
+        function draw() {
+          var now = Date.now();
+          var open = S.marketOpen(now), m = document.getElementById('market');
+          m.className = 'w-live' + (open ? ' on' : '');
+          m.textContent = open ? 'Market open' : 'Market closed';
+          timeline(now);
+          var ovNow = S.overlaps(now, now + 1).filter(function (o) { return +o.start <= now && now < +o.end; })[0];
+          var p = document.getElementById('ovnow');
+          if (ovNow) { p.hidden = false; p.innerHTML = ''; p.appendChild(el('b', null, names(ovNow.ids))); p.appendChild(document.createTextNode(' overlap until ' + hm.format(ovNow.end) + ', in ' + dur(ovNow.end - now) + '.')); }
+          else p.hidden = true;
+          var ul = document.getElementById('rows');
+          ul.textContent = '';
+          S.status(now).forEach(function (s) {
+            var li = el('li', 'row'); li.style.setProperty('--c', 'var(--s-' + s.id + ')');
+            li.appendChild(el('span', 'dot'));
+            var h = el('h2', null, s.name + ' '); h.appendChild(el('small', 'num', s.local + ' local · ' + s.currencies.join(' ')));
+            li.appendChild(h);
+            var w = el('div', 'when num');
+            var pill = el('span', 'pill' + (s.open ? ' on' : ''), s.open ? 'Open' : 'Closed');
+            if (s.open) { w.appendChild(pill); w.appendChild(document.createTextNode(' closes in ')); w.appendChild(el('b', null, dur(s.end - now))); }
+            else if (s.nextOpen) { w.appendChild(pill); w.appendChild(document.createTextNode(' opens in ')); w.appendChild(el('b', null, dur(s.nextOpen - now))); }
+            else w.appendChild(pill);
+            li.appendChild(w);
+            if (s.open) {
+              var pr = el('div', 'prog'), bi = el('i'); bi.style.width = Math.min(100, ((now - s.start) / (s.end - s.start)) * 100) + '%';
+              pr.appendChild(bi); li.appendChild(pr);
+            }
+            // a central bank decision inside this session (the one open now, or the next)
+            if (s.start && s.end) {
+              decisionIn(+s.start, +s.end).slice(0, 2).forEach(function (d) {
+                var n = el('div', 'note');
+                n.appendChild(document.createTextNode('A central bank decides during this session: '));
+                var a = el('a', null, d.short + ', ' + local(Date.parse(d.t)));
+                a.href = d.page + (d.page.indexOf('?') < 0 ? '?' : '&') + VIA; a.target = '_blank'; a.rel = 'noopener';
+                n.appendChild(a); li.appendChild(n);
+              });
+            }
+            ul.appendChild(li);
+          });
+          size();
+        }
+
+        // tell the page around it how tall this is (embed.js sets the frame's height)
+        var last = 0;
+        function size() {
+          var h = Math.ceil(document.querySelector('.w').getBoundingClientRect().height);
+          if (h !== last && parent !== window) { last = h; parent.postMessage({ fx: 'size', widget: 'sessions', id: id, height: h }, '*'); }
+        }
+        if ('ResizeObserver' in window) new ResizeObserver(size).observe(document.querySelector('.w'));
+        window.addEventListener('load', size);
+
+        draw();
+        setInterval(draw, 15000);
+        document.addEventListener('visibilitychange', function () { if (!document.hidden) draw(); });
+
+        if (q.get('decisions') !== '0' && window.fetch) {
+          fetch(q.get('next') || 'https://interestratedecision.com/data/next.json')
+            .then(function (r) { return r.ok ? r.json() : null; })
+            .then(function (j) {
+              if (!j || !j.decisions) return;
+              decisions = j.decisions.filter(function (d) { return d.t && d.page && /^https:\/\/interestratedecision\.com\//.test(d.page); });
+              draw();
+            })
+            .catch(function () {});
+        }
+      })();
+    </script>
+  </body>
+</html>
